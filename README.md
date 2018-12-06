@@ -3,84 +3,10 @@
 Hello everyone welcome to our analysis on GMS v95.1
   - This document is a work in progress
   - This is not a professional document
-  - It's primary focus is on antihack components I had to do to create localhost enabler
+  - The primary focus is on what I d to do to create localhost
   - There is too much for me to go into excruciating detail about
   - Please contribute if you know anything more !!!
 
-## Annoying Functions
-
-#### HideDll
-
-This function removes the module from the module list.  This crashes on anything higher than Win7. PatchRetZero
-
-```cpp
-void __cdecl HideDll(HINSTANCE__ *hModule)
-{
-  _LDR_MODULE *pLdrModule; // [esp+0h] [ebp-8h]
-
-  for ( pLdrModule = (_LDR_MODULE *)NtCurrentTeb()->ProcessEnvironmentBlock->Ldr->InLoadOrderModuleList.Flink;
-        pLdrModule->BaseAddress && pLdrModule->BaseAddress != hModule;
-        pLdrModule = (_LDR_MODULE *)pLdrModule->InLoadOrderModuleList.Flink )
-  {
-    ;
-  }
-  if ( pLdrModule->BaseAddress )
-  {
-    pLdrModule->InLoadOrderModuleList.Blink->Flink = pLdrModule->InLoadOrderModuleList.Flink;
-    pLdrModule->InLoadOrderModuleList.Flink->Blink = pLdrModule->InLoadOrderModuleList.Blink;
-    pLdrModule->InMemoryOrderModuleList.Blink->Flink = pLdrModule->InMemoryOrderModuleList.Flink;
-    pLdrModule->InMemoryOrderModuleList.Flink->Blink = pLdrModule->InMemoryOrderModuleList.Blink;
-    pLdrModule->InInitializationOrderModuleList.Blink->Flink = pLdrModule->InInitializationOrderModuleList.Flink;
-    pLdrModule->InInitializationOrderModuleList.Flink->Blink = pLdrModule->InInitializationOrderModuleList.Blink;
-    pLdrModule->HashTableEntry.Blink->Flink = pLdrModule->HashTableEntry.Flink;
-    pLdrModule->HashTableEntry.Flink->Blink = pLdrModule->HashTableEntry.Blink;
-    memset(pLdrModule, 0, 0x48u);
-  }
-}
-```
-
-#### SendHSLog
-
-Self explanatory. Called in WinMain. PatchRetZero
-
-```cpp
-void __cdecl SendHSLog(unsigned int dwErrCode)
-{
-  ZXString<char> *v1; // eax
-  ZXString<char> result; // [esp+0h] [ebp-314h]
-  char szPath[260]; // [esp+4h] [ebp-310h]
-  char szHShieldPath[260]; // [esp+108h] [ebp-20Ch]
-  char szCharacterName[260]; // [esp+20Ch] [ebp-108h]
-
-  szPath[0] = 0;
-  memset(&szPath[1], 0, 0x103u);
-  szHShieldPath[0] = 0;
-  memset(&szHShieldPath[1], 0, 0x103u);
-  szCharacterName[0] = 0;
-  memset(&szCharacterName[1], 0, 0x103u);
-  GetModuleFileNameA(0, szPath, 0x104u);
-  _mbsrchr((const unsigned __int8 *)szPath, 0x5Cu)[1] = 0;
-  sprintf(szHShieldPath, "%s\\HShield", szPath);
-  v1 = CConfig::GetSessionCharacterName((CConfig *)TSingleton<CConfig>::ms_pInstance._m_pStr, &result);
-  sprintf(szCharacterName, "MapleStory_Global:%s", v1->_m_pStr);
-  if ( result._m_pStr )
-    ZXString<char>::_Release((ZXString<char>::_ZXStringData *)result._m_pStr - 1);
-  _AhnHS_SendHsLogA(dwErrCode, (int)szCharacterName, (int)szHShieldPath);
-}
-```
-
-
-#### CeTracer::Run
-
-This function sends client crash reports. PatchRetZero
-
-```cpp
-void __thiscall CeTracer::Run(CeTracer *this)
-{
-  if ( this->ET_ErrorCode )
-    Start_eTracer(this->ET_ErrorCode, this->ET_MaxErrorCnt);
-}
-```
 
 ## CSecurityClient
 Class used to handle anti cheat integration
@@ -258,7 +184,8 @@ void __thiscall CSecurityClient::StopModule(CSecurityClient *this)
   }
 }
 
-//Just throws an exception is HS error code is set
+//Just throws an exception if HS error code is set
+//Checks CSecurityClient->m_nThreatCode is a bad HS return code and throw ( result > 0x10501 )
 signed int __thiscall CSecurityClient__Update(_DWORD *this)
 {
   signed int result; // eax
@@ -323,7 +250,7 @@ LABEL_10:
 ## IP Checks
 
   - Game is fucking booby trapped with IP checks
-  - Its not worth me pointing out where
+  - It's not worth me pointing out where ( will eventually )
   - But basically getpeername is called, just return the expected IP ` 63.251.217.1 `
   - Sad thing is they have heavy API checks on winsock so use the WSP variants like I do
   - TODO: Talk more about the ` MyGetProcAddress ` and heavy winapi checks ( xxxx.nst )
@@ -331,14 +258,17 @@ LABEL_10:
 ## CWvsApp Checks
   - ` CSecurityClient::Update ` is called in  ` CWvsApp::Run `
   - ` CWvsApp->m_tLastServerIPCheck ` is in ` CWvsApp::CallUpdate `
-  - ` CWvsApp->m_tLastServerIPCheck2 ` is in ` CWvsApp::Run `  | Has CSecurityClient integrated aswell
-  - ` CWvsApp->m_tLastSecurityCheck ` is in ` CWvsApp::Run ` | I wish i knew what this is
+  - ` CWvsApp->m_tLastServerIPCheck2 ` is in ` CWvsApp::Run `  | Also contains CSecurityClient check below
+  - ` CWvsApp->m_tLastSecurityCheck ` is in ` CWvsApp::Run `
 
 #### CWvsApp->m_tLastSecurityCheck
 Everyday I pray and ask god what this done but I am unsure. All i know is i have to spoof it so client doesn't crash.
 
 #### CSecurityClient Check
 Thisis inside m_tLastServerIPCheck2
+Checks if some files in the HShield folder exist `3N.mhe, v3warpds.v3d, v3warpns.v3d `
+Checks ` _AhnHS_StartSerice ` ret and expects `HS_ERR_ALREADY_SERVICE_RUNNING` ( 0x00000201 )
+Checks `CSecurityClient->m_dwCallbackTime` is ` <= 60000 `
 
 ```cpp
     if ( TSingleton_CSecurityClient__IsInstantiated() )
@@ -371,27 +301,45 @@ Thisis inside m_tLastServerIPCheck2
         v22 = 0;
       if ( hObject != (HANDLE)-1 )
         CloseHandle(hObject);
-      if ( sub_A58F2C() != 513 )
+      if ( _AhnHS_StartService() != 513 )
         v22 = 0;
       v11 = GetTickCount();
       if ( v11 - *(_DWORD *)(TSingleton_CSecurityClient__GetInstance() + 48) > 60000 )
         v22 = 0;
     }
 ```
+Relevant HS callback to above
+```cpp
 
-## To Do
-  - Explain the order of operations / sequence of events
-  - ` ZApiLoader `
-  - Login IP dynamic initializer `ZInetAddr`
+int __stdcall _AhnHS_Callback(int lCode, int lParamSize, void *pParam)
+{
+  if ( lCode == 65537 )
+  {
+    if ( TSingleton<CSecurityClient>::ms_pInstance )
+    {
+      TSingleton<CSecurityClient>::ms_pInstance->m_dwCallbackTime = GetTickCount();
+      return 0;
+    }
+  }
+  else if ( TSingleton<CSecurityClient>::ms_pInstance )
+  {
+    TSingleton<CSecurityClient>::ms_pInstance->m_nThreatCode = lCode;
+    TSecType<long>::SetData(&TSingleton<CSecurityClient>::ms_pInstance->m_nThreatParamSize, lParamSize);
+    TSingleton<CSecurityClient>::ms_pInstance->m_pThreatParam = pParam;
+  }
+  return 0;
+}
+
+```
 
 ## MSCRC
-  - Someone pls send help
+  - I am still trying to figure this out.  Please contribute if you know !!!
   - Crc32__GetCrc32
-  - Crc32__GetCrc32VMCRC
-  - Crc32__GetCrc32VMTABLE
+  - Crc32__GetCrc32_VMCRC
+  - Crc32__GetCrc32_VMTABLE
 
 ## CWvsContext::OnEnterField
-Ignore this super shitty pseudo analysis below until I actually solve it. PatchRetZero skip and get ingame to be a god
+Ignore this super shitty pseudo analysis below until I actually solve it. PatchRetZero to skip the call. This MSCRC bypass still used in v200 GMS today. However it skips some game code we need actually need !!! ( Closing UI's and other shit )
 
 ```
 void CWvsContext::OnEnterField() //v95
@@ -448,3 +396,85 @@ _text:009DBF6D 058 83 E8 04                                      sub     eax, 4
 _text:009DBF70 058 89 18                                         mov     [eax], ebx
 _text:009DBF72 058 EB F5                                         jmp     short loc_9DBF69
 ```
+
+## Other Functions
+
+#### DR_check
+This function checks for the debug register. PatchRetZero
+
+#### HideDll
+
+This function removes the module from the module list.  This crashes on anything higher than Win7. PatchRetZero
+
+```cpp
+void __cdecl HideDll(HINSTANCE__ *hModule)
+{
+  _LDR_MODULE *pLdrModule; // [esp+0h] [ebp-8h]
+
+  for ( pLdrModule = (_LDR_MODULE *)NtCurrentTeb()->ProcessEnvironmentBlock->Ldr->InLoadOrderModuleList.Flink;
+        pLdrModule->BaseAddress && pLdrModule->BaseAddress != hModule;
+        pLdrModule = (_LDR_MODULE *)pLdrModule->InLoadOrderModuleList.Flink )
+  {
+    ;
+  }
+  if ( pLdrModule->BaseAddress )
+  {
+    pLdrModule->InLoadOrderModuleList.Blink->Flink = pLdrModule->InLoadOrderModuleList.Flink;
+    pLdrModule->InLoadOrderModuleList.Flink->Blink = pLdrModule->InLoadOrderModuleList.Blink;
+    pLdrModule->InMemoryOrderModuleList.Blink->Flink = pLdrModule->InMemoryOrderModuleList.Flink;
+    pLdrModule->InMemoryOrderModuleList.Flink->Blink = pLdrModule->InMemoryOrderModuleList.Blink;
+    pLdrModule->InInitializationOrderModuleList.Blink->Flink = pLdrModule->InInitializationOrderModuleList.Flink;
+    pLdrModule->InInitializationOrderModuleList.Flink->Blink = pLdrModule->InInitializationOrderModuleList.Blink;
+    pLdrModule->HashTableEntry.Blink->Flink = pLdrModule->HashTableEntry.Flink;
+    pLdrModule->HashTableEntry.Flink->Blink = pLdrModule->HashTableEntry.Blink;
+    memset(pLdrModule, 0, 0x48u);
+  }
+}
+```
+
+#### SendHSLog
+
+Self explanatory. Called in WinMain. PatchRetZero
+
+```cpp
+void __cdecl SendHSLog(unsigned int dwErrCode)
+{
+  ZXString<char> *v1; // eax
+  ZXString<char> result; // [esp+0h] [ebp-314h]
+  char szPath[260]; // [esp+4h] [ebp-310h]
+  char szHShieldPath[260]; // [esp+108h] [ebp-20Ch]
+  char szCharacterName[260]; // [esp+20Ch] [ebp-108h]
+
+  szPath[0] = 0;
+  memset(&szPath[1], 0, 0x103u);
+  szHShieldPath[0] = 0;
+  memset(&szHShieldPath[1], 0, 0x103u);
+  szCharacterName[0] = 0;
+  memset(&szCharacterName[1], 0, 0x103u);
+  GetModuleFileNameA(0, szPath, 0x104u);
+  _mbsrchr((const unsigned __int8 *)szPath, 0x5Cu)[1] = 0;
+  sprintf(szHShieldPath, "%s\\HShield", szPath);
+  v1 = CConfig::GetSessionCharacterName((CConfig *)TSingleton<CConfig>::ms_pInstance._m_pStr, &result);
+  sprintf(szCharacterName, "MapleStory_Global:%s", v1->_m_pStr);
+  if ( result._m_pStr )
+    ZXString<char>::_Release((ZXString<char>::_ZXStringData *)result._m_pStr - 1);
+  _AhnHS_SendHsLogA(dwErrCode, (int)szCharacterName, (int)szHShieldPath);
+}
+```
+
+#### CeTracer::Run
+
+This function sends client crash reports. It makes some reporting window pop up. PatchRetZero
+
+```cpp
+void __thiscall CeTracer::Run(CeTracer *this)
+{
+  if ( this->ET_ErrorCode )
+    Start_eTracer(this->ET_ErrorCode, this->ET_MaxErrorCnt);
+}
+```
+
+## To Do
+  - Explain the order of operations / sequence of events
+  - ` ZApiLoader `
+  - Login IP dynamic initializer `ZInetAddr`
