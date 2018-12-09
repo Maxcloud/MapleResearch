@@ -342,7 +342,8 @@ int __stdcall _AhnHS_Callback(int lCode, int lParamSize, void *pParam)
 Ignore this super shitty pseudo analysis below until I actually solve it. PatchRetZero to skip the call. This MSCRC bypass still used in v200 GMS today. However it skips some game code we need actually need !!! ( Closing UI's and other shit )
 
 ```
-void CWvsContext::OnEnterField() //v95
+//Three VM sections in here
+void CWvsContext::OnEnterField()
 {
 //BlaBlaBla
 
@@ -350,7 +351,7 @@ CWvsContext::UI_CloseRevive()
 
 BEGIN_VM_BLOCK
 
-bAuth is a parameter in a MSCRC function (?)
+bAuth is a parameter/ret in a MSCRC function (?)
 
 bAuth = 0
 var24 = 0
@@ -375,8 +376,25 @@ END_VM_BLOCK
 
 CTemporaryStatView::Show(void)
 //BlaBlaBla
-CConfig::SaveSessionInfo_FieldID()
+TSingleton<CRadioManager>::GetInstance(void)
 
+BEGIN_VM_BLOCK
+Nopped Shit I need to RE
+END_VM_BLOCK
+
+TSingleton<CUIStatusBar>::IsInstantiated(void)
+//BlaBlaBla
+CField::IsSwimmingMap()
+
+BEGIN_VM_BLOCK
+Check value of ` bAuth `
+If check fails: CLIENT_BLOWUP_DEATH
+END_VM_BLOCK
+
+
+CTemporaryStatView::Show(void)
+//BlaBlaBla
+CConfig::SaveSessionInfo_FieldID()
 }
 ====================================================
 CLIENT_BLOWUP_DEATH:
@@ -478,3 +496,6 @@ void __thiscall CeTracer::Run(CeTracer *this)
   - Explain the order of operations / sequence of events
   - ` ZApiLoader `
   - Login IP dynamic initializer `ZInetAddr`
+  - MSLoop_Remove();
+  - CWvsApp::ConnectLogin(thisa, v5);
+  - InitSafeDll_iphdll();
