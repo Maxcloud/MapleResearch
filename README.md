@@ -333,10 +333,12 @@ int __stdcall _AhnHS_Callback(int lCode, int lParamSize, void *pParam)
 ```
 
 ## MSCRC
-  - I am still trying to figure this out.  Please contribute if you know !!!
-  - Crc32__GetCrc32
-  - Crc32__GetCrc32_VMCRC
-  - Crc32__GetCrc32_VMTABLE
+  - ~~I am still trying to figure this out.  Please contribute if you know !!!~~
+  - ~~Crc32__GetCrc32~~
+  - ~~Crc32__GetCrc32_VMCRC~~
+  - ~~Crc32__GetCrc32_VMTABLE~~
+
+  - Click [here](https://github.com/lastbattle/Harepacker-resurrected/commit/814ed0b6b549e7550df17b5a6f5ba8db6964adc5) to view the rebuilt functions. Contribution and special thanks to LastBattle.
 
 ## CWvsContext::OnEnterField
 Ignore this super shitty pseudo analysis below until I actually solve it. PatchRetZero to skip the call. This MSCRC bypass still used in v200 GMS today. However it skips some game code we need actually need !!! ( Closing UI's and other shit )
